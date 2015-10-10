@@ -3,6 +3,10 @@
 // QuizFragment and SettingsFragment on a tablet
 package com.deitel.flagquiz;
 
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Set;
 
 import android.app.Activity;
@@ -18,6 +22,7 @@ import android.view.Display;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.WindowManager;
+import android.widget.ArrayAdapter;
 import android.widget.Toast;
 
 public class MainActivity extends Activity
@@ -28,12 +33,21 @@ public class MainActivity extends Activity
 
    private boolean phoneDevice = true; // used to force portrait mode
    private boolean preferencesChanged = true; // did preferences change?
+
+
    
    @Override
    protected void onCreate(Bundle savedInstanceState)
    {
       super.onCreate(savedInstanceState);
       setContentView(R.layout.activity_main);
+
+    /*  // get the SharedPreferences containing the top five scores
+      topFiveScores = getSharedPreferences(TOP_SCORES, MODE_PRIVATE);
+
+      // store the top five scores in an ArrayList then sort them
+      ranking = new ArrayList<String>(topFiveScores.getAll().keySet());
+      Collections.sort(ranking, Collections.reverseOrder());*/
 
       // set default values in the app's SharedPreferences
       PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
@@ -153,7 +167,8 @@ public class MainActivity extends Activity
          Toast.makeText(MainActivity.this, 
             R.string.restarting_quiz, Toast.LENGTH_SHORT).show();
       } // end method onSharedPreferenceChanged
-   }; // end anonymous inner class    
+   }; // end anonymous inner class
+
 } // end class MainActivity
 
 

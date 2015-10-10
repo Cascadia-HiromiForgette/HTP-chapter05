@@ -18,5 +18,8 @@
     <string name="reset_quiz">Reset Quiz</string>
     <string name="image_description">Image of the current flag in the quiz</string>
     <string name="default_region">North_America</string>
+    <string name="first_correct_guess">Correct answer on the first attempt!</string>
+    <string name="first_correct_results">%1$d correct answers on the first attempt, %2$.02f%% correct</string>
+    <string name="total_score">Total Score: %1$d</string>
 
 </resources>

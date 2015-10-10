@@ -27,10 +27,12 @@ import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class QuizFragment extends Fragment 
 {
@@ -49,11 +51,21 @@ public class QuizFragment extends Fragment
    private SecureRandom random; // used to randomize the quiz
    private Handler handler; // used to delay loading next flag
    private Animation shakeAnimation; // animation for incorrect guess
+
+   private int numOfFirstCorrectGuesses; // number of correct guesses on first attempt
+   private int numOfUserAttempts; // number of user attempts for each flag
+   private int totalScore; // total score
    
    private TextView questionNumberTextView; // shows current question #
    private ImageView flagImageView; // displays a flag
    private LinearLayout[] guessLinearLayouts; // rows of answer Buttons
    private TextView answerTextView; // displays Correct! or Incorrect!
+
+   private static final String TOP_SCORES = "top_scores"; // name of SharedPreferences XML file that stores the top 5 scores
+   private SharedPreferences topFiveScores; // top five scores
+   private ArrayList<String> ranking; // a list of the top five ranking
+   private ArrayAdapter<String> adapter; // bind ranking
+
    
    // configures the QuizFragment when its View is created
    @Override
@@ -250,89 +262,173 @@ public class QuizFragment extends Fragment
    } 
    
    // called when a guess Button is touched
-   private OnClickListener guessButtonListener = new OnClickListener() 
+   private OnClickListener guessButtonListener = new OnClickListener()
    {
       @Override
-      public void onClick(View v) 
+      public void onClick(View v)
       {
-         Button guessButton = ((Button) v); 
+         Button guessButton = ((Button) v);
          String guess = guessButton.getText().toString();
          String answer = getCountryName(correctAnswer);
          ++totalGuesses; // increment number of guesses the user has made
-         
-         if (guess.equals(answer)) // if the guess is correct
+         ++numOfUserAttempts; // increment number of user attempts in each question
+
+         //// if the guess is correct and this is the first attempt ////
+         if (guess.equals(answer) && numOfUserAttempts == 1)
          {
+            ++numOfFirstCorrectGuesses; // Increment the number of correct answer on the first attempt
             ++correctAnswers; // increment the number of correct answers
+            totalScore = totalScore + 10; // add 10 points to the total score when the answer is correct on first attempt
+            Toast.makeText(getActivity(), R.string.first_correct_guess, Toast.LENGTH_SHORT).show(); // Display a message
 
             // display correct answer in green text
             answerTextView.setText(answer + "!");
             answerTextView.setTextColor(
-               getResources().getColor(R.color.correct_answer));
+                    getResources().getColor(R.color.correct_answer));
 
             disableButtons(); // disable all guess Buttons
-            
+
             // if the user has correctly identified FLAGS_IN_QUIZ flags
-            if (correctAnswers == FLAGS_IN_QUIZ) 
+            if (correctAnswers == FLAGS_IN_QUIZ)
             {
                // DialogFragment to display quiz stats and start new quiz
-               DialogFragment quizResults = 
-                  new DialogFragment()
-                  {
-                     // create an AlertDialog and return it
-                     @Override
-                     public Dialog onCreateDialog(Bundle bundle)
-                     {
-                        AlertDialog.Builder builder = 
-                           new AlertDialog.Builder(getActivity());
-                        builder.setCancelable(false); 
-                        
-                        builder.setMessage(
-                           getResources().getString(R.string.results, 
-                           totalGuesses, (1000 / (double) totalGuesses)));
-                        
-                        // "Reset Quiz" Button                              
-                        builder.setPositiveButton(R.string.reset_quiz,
-                           new DialogInterface.OnClickListener()                
-                           {                                                       
-                              public void onClick(DialogInterface dialog, 
-                                 int id) 
-                              {
-                                 resetQuiz();                                      
-                              } 
-                           } // end anonymous inner class
-                        ); // end call to setPositiveButton
-                        
-                        return builder.create(); // return the AlertDialog
-                     } // end method onCreateDialog   
-                  }; // end DialogFragment anonymous inner class
-               
+               DialogFragment quizResults =
+                       new DialogFragment()
+                       {
+                          // create an AlertDialog and return it
+                          @Override
+                          public Dialog onCreateDialog(Bundle bundle)
+                          {
+                             AlertDialog.Builder builder =
+                                     new AlertDialog.Builder(getActivity());
+                             builder.setCancelable(false);
+
+                             builder.setMessage(
+                                     getResources().getString(R.string.results,
+                                             totalGuesses, (1000 / (double) totalGuesses)) + "\n" +
+                                             getResources().getString(R.string.first_correct_results, numOfFirstCorrectGuesses, (1000 / numOfFirstCorrectGuesses))
+                                             + "\n" + getResources().getString(R.string.total_score, totalScore));
+
+                             // "Reset Quiz" Button
+                             builder.setPositiveButton(R.string.reset_quiz,
+                                     new DialogInterface.OnClickListener() {
+                                        public void onClick(DialogInterface dialog,
+                                                            int id) {
+                                           resetQuiz();
+                                        }
+                                     } // end anonymous inner class
+                             ); // end call to setPositiveButton
+
+                             return builder.create(); // return the AlertDialog
+                          } // end method onCreateDialog
+                       }; // end DialogFragment anonymous inner class
+
                // use FragmentManager to display the DialogFragment
                quizResults.show(getFragmentManager(), "quiz results");
-            } 
-            else // answer is correct but quiz is not over 
+
+            } // end of if correct answers == FLAG_IN_QUIZ
+
+            else // answer is correct but quiz is not over
             {
                // load the next flag after a 1-second delay
                handler.postDelayed(
-                  new Runnable()
-                  { 
-                     @Override
-                     public void run()
-                     {
-                        loadNextFlag();
-                     }
-                  }, 2000); // 2000 milliseconds for 2-second delay
-            } 
-         } 
-         else // guess was incorrect  
+                       new Runnable()
+                       {
+                          @Override
+                          public void run()
+                          {
+                             loadNextFlag();
+                          }
+                       }, 2000); // 2000 milliseconds for 2-second delay
+            }// end of else statement
+            numOfUserAttempts = 0; // Reset the number of user attempt to zero
+         }// end of if statement for correct answer on the first attempt
+
+         //// if the guess is correct and this is the second or more attempt ////
+         else if (guess.equals(answer) && numOfUserAttempts > 1)
+         {
+            ++correctAnswers; // increment the number of correct answers
+            totalScore = totalScore + (100 - (numOfUserAttempts * 10));
+
+            // display correct answer in green text
+            answerTextView.setText(answer + "!");
+            answerTextView.setTextColor(
+                    getResources().getColor(R.color.correct_answer));
+
+            disableButtons(); // disable all guess Buttons
+
+            // if the user has correctly identified FLAGS_IN_QUIZ flags
+            if (correctAnswers == FLAGS_IN_QUIZ)
+            {
+               // DialogFragment to display quiz stats and start new quiz
+               DialogFragment quizResults =
+                       new DialogFragment()
+                       {
+                          // create an AlertDialog and return it
+                          @Override
+                          public Dialog onCreateDialog(Bundle bundle)
+                          {
+                             AlertDialog.Builder builder =
+                                     new AlertDialog.Builder(getActivity());
+                             builder.setCancelable(false);
+
+                             builder.setMessage(
+                                     getResources().getString(R.string.results,
+                                             totalGuesses, (1000 / (double) totalGuesses))+"\n" +
+                                             getResources().getString(R.string.first_correct_results, numOfFirstCorrectGuesses, ((double)numOfFirstCorrectGuesses/10) * 100)
+                                             + "\n" + getResources().getString(R.string.total_score,totalScore));
+
+                             // "Reset Quiz" Button
+                             builder.setPositiveButton(R.string.reset_quiz,
+                                     new DialogInterface.OnClickListener()
+                                     {
+                                        public void onClick(DialogInterface dialog,
+                                                            int id)
+                                        {
+                                           resetQuiz();
+                                        }
+                                     } // end anonymous inner class
+                             ); // end call to setPositiveButton
+
+                             return builder.create(); // return the AlertDialog
+                          } // end method onCreateDialog
+                       }; // end DialogFragment anonymous inner class
+
+               // use FragmentManager to display the DialogFragment
+               quizResults.show(getFragmentManager(), "quiz results");
+
+               // store top five scores on SharedPreferences
+
+            }
+
+            else // answer is correct but quiz is not over
+            {
+               // load the next flag after a 1-second delay
+               handler.postDelayed(
+                       new Runnable()
+                       {
+                          @Override
+                          public void run()
+                          {
+                             loadNextFlag();
+                          }
+                       }, 2000); // 2000 milliseconds for 2-second delay
+            }
+            numOfUserAttempts = 0; // Reset the number of user attempt to zero
+         }
+
+         //// guess was incorrect ////
+         else if (!guess.equals(answer))
          {
             flagImageView.startAnimation(shakeAnimation); // play shake
 
-            // display "Incorrect!" in red 
+            // display "Incorrect!" in red
             answerTextView.setText(R.string.incorrect_answer);
             answerTextView.setTextColor(
                getResources().getColor(R.color.incorrect_answer));
             guessButton.setEnabled(false); // disable incorrect answer
-         } 
+         }
+
       } // end method onClick
    }; // end answerButtonListener
 
@@ -345,7 +441,15 @@ public class QuizFragment extends Fragment
          for (int i = 0; i < guessRow.getChildCount(); i++)
             guessRow.getChildAt(i).setEnabled(false);
       } 
-   } 
+   }
+
+   // Save score in SharedPreferences
+   private void saveScore(String key, String value) {
+      SharedPreferences sharedPreferences = getActivity().getSharedPreferences(TOP_SCORES, 0);
+      SharedPreferences.Editor editor = sharedPreferences.edit();
+      editor.putString(key, value);
+      editor.apply();
+   }
 } // end class FlagQuiz
 
      
